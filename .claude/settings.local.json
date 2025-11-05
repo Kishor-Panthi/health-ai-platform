@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

@@ -19,47 +19,47 @@ import { cn } from "@/lib/utils";
 const navigation = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
     name: "Appointments",
-    href: "/appointments",
+    href: "/dashboard/appointments",
     icon: Calendar,
   },
   {
     name: "Patients",
-    href: "/patients",
+    href: "/dashboard/patients",
     icon: Users,
   },
   {
     name: "Communications",
-    href: "/communications",
+    href: "/dashboard/communications",
     icon: MessageSquare,
   },
   {
     name: "Billing",
-    href: "/billing",
+    href: "/dashboard/billing",
     icon: CreditCard,
   },
   {
     name: "Referrals",
-    href: "/referrals",
+    href: "/dashboard/referrals",
     icon: UserPlus,
   },
   {
     name: "Reports",
-    href: "/reports",
+    href: "/dashboard/reports",
     icon: BarChart3,
   },
   {
     name: "Settings",
-    href: "/settings",
+    href: "/dashboard/settings",
     icon: Settings,
   },
   {
     name: "Help",
-    href: "/help",
+    href: "/dashboard/help",
     icon: HelpCircle,
   },
 ];

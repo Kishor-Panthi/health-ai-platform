@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
+import { CommandPaletteProvider } from "@/components/shared/CommandPaletteProvider";
 
 export const metadata: Metadata = {
   title: "HealthCare PM - Practice Management System",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <CommandPaletteProvider>{children}</CommandPaletteProvider>
+        </Providers>
       </body>
     </html>
   );

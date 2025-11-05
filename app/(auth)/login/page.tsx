@@ -2,18 +2,32 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity } from "lucide-react";
+import { useUserStore } from "@/lib/stores/useUserStore";
 
 export default function LoginPage() {
   const router = useRouter();
+  const setUser = useUserStore((state) => state.setUser);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - redirect to dashboard
+
+    // Mock login - set user and redirect to dashboard
+    setUser({
+      id: "user-1",
+      firstName: "John",
+      lastName: "Admin",
+      email: email,
+      role: "Administrator",
+    });
+
     router.push("/dashboard");
   };
 
@@ -37,6 +51,8 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="doctor@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -54,6 +70,8 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>

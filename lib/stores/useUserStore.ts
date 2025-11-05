@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { cookieStorage } from "@/lib/utils/cookieStorage";
 
 interface User {
   id: string;
@@ -25,6 +26,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: "user-storage",
+      storage: cookieStorage,
     }
   )
 );
