@@ -14,7 +14,7 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Mock login - redirect to dashboard
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (
