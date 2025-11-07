@@ -13,6 +13,7 @@ import {
   HelpCircle,
   LayoutDashboard,
   Activity,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,11 @@ const navigation = [
     name: "Reports",
     href: "/dashboard/reports",
     icon: BarChart3,
+  },
+  {
+    name: "Automation",
+    href: "/dashboard/automation",
+    icon: Zap,
   },
   {
     name: "Settings",

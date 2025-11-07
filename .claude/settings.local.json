@@ -3,7 +3,11 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(npx shadcn@latest add:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(python:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(alembic revision:*)"
     ],
     "deny": [],
     "ask": []

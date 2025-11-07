@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserMenu } from "../UserMenu";
 import { NotificationBell } from "../NotificationBell";
+import { ThemeToggle } from "../ThemeToggle";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -40,6 +41,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <NotificationBell />
         <UserMenu />
       </div>

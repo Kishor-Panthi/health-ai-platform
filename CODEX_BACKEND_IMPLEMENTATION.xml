@@ -1,0 +1,3085 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<codex-prompt>
+  <metadata>
+    <title>Healthcare Practice Management Platform - Backend Implementation</title>
+    <version>1.0</version>
+    <created>2025-11-07</created>
+    <complexity>high</complexity>
+    <estimated-files>150+</estimated-files>
+    <description>
+      Comprehensive backend implementation with FastAPI, PostgreSQL, multi-tenancy,
+      HIPAA compliance, OAuth2 authentication, WebSocket support, and external integrations.
+    </description>
+  </metadata>
+
+  <project-context>
+    <overview>
+      This is a healthcare practice management platform with a Next.js frontend already implemented.
+      The backend needs to support patient management, appointment scheduling, billing/claims,
+      referrals, communications, reporting, and automation features. The system must be HIPAA
+      compliant with audit logging, encryption, and multi-tenancy support.
+    </overview>
+
+    <technology-stack>
+      <backend>
+        <language>Python 3.11+</language>
+        <framework>FastAPI 0.104+</framework>
+        <orm>SQLAlchemy 2.0+</orm>
+        <migration-tool>Alembic</migration-tool>
+        <validation>Pydantic 2.0+</validation>
+        <async-support>asyncio, asyncpg</async-support>
+        <testing>pytest, pytest-asyncio</testing>
+        <authentication>OAuth2 + JWT (python-jose)</authentication>
+        <password-hashing>passlib with bcrypt</password-hashing>
+        <websocket>FastAPI WebSocket</websocket>
+      </backend>
+
+      <database>
+        <primary>PostgreSQL 15+</primary>
+        <local-setup>Docker Compose</local-setup>
+        <production>AWS RDS PostgreSQL</production>
+        <connection-pool>SQLAlchemy async engine</connection-pool>
+      </database>
+
+      <storage>
+        <local>Local filesystem for development</local>
+        <production>AWS S3</production>
+        <library>boto3</library>
+      </storage>
+
+      <integrations>
+        <email>SendGrid API / AWS SES</email>
+        <sms>Twilio API</sms>
+        <payments>Stripe API</payments>
+      </integrations>
+    </technology-stack>
+
+    <architectural-principles>
+      <principle>Separation of concerns (routes, services, models, schemas)</principle>
+      <principle>Dependency injection for testability</principle>
+      <principle>Multi-tenancy with practice_id isolation</principle>
+      <principle>Automatic audit logging for all mutations</principle>
+      <principle>HIPAA compliance with encryption and access controls</principle>
+      <principle>RESTful API design with versioning (/api/v1/)</principle>
+      <principle>Comprehensive error handling and validation</principle>
+      <principle>Async/await throughout for performance</principle>
+    </architectural-principles>
+  </project-context>
+
+  <directory-structure>
+    <structure>
+backend/
+├── .env.example                      # Environment variables template
+├── .gitignore                        # Git ignore file
+├── requirements.txt                  # Python dependencies
+├── requirements-dev.txt              # Development dependencies
+├── docker-compose.yml                # Local PostgreSQL + Redis setup
+├── Dockerfile                        # Production Docker image
+├── README.md                         # Backend documentation
+├── pytest.ini                        # Pytest configuration
+├── alembic.ini                       # Alembic configuration
+├── main.py                           # FastAPI application entry point
+│
+├── api/                              # API layer
+│   ├── __init__.py
+│   ├── deps.py                       # Common dependencies
+│   └── v1/                           # API version 1
+│       ├── __init__.py
+│       ├── api.py                    # Main router aggregator
+│       ├── endpoints/                # Route handlers
+│       │   ├── __init__.py
+│       │   ├── auth.py               # Login, register, token refresh
+│       │   ├── patients.py           # Patient CRUD + search
+│       │   ├── appointments.py       # Appointment management
+│       │   ├── providers.py          # Provider management
+│       │   ├── staff.py              # Staff management
+│       │   ├── claims.py             # Billing and claims
+│       │   ├── referrals.py          # Referral management
+│       │   ├── communications.py     # Messages and notifications
+│       │   ├── documents.py          # Document upload/download
+│       │   ├── medical_records.py    # EHR - allergies, meds, conditions
+│       │   ├── insurance.py          # Insurance policies
+│       │   ├── reports.py            # Analytics and reporting
+│       │   ├── automation.py         # Automation rules
+│       │   ├── settings.py           # Practice and user settings
+│       │   ├── notifications.py      # Notification management
+│       │   ├── specialists.py        # Specialist directory
+│       │   └── websocket.py          # WebSocket connections
+│       └── schemas/                  # Pydantic models (request/response)
+│           ├── __init__.py
+│           ├── auth.py
+│           ├── patient.py
+│           ├── appointment.py
+│           ├── provider.py
+│           ├── staff.py
+│           ├── claim.py
+│           ├── referral.py
+│           ├── communication.py
+│           ├── document.py
+│           ├── medical_record.py
+│           ├── insurance.py
+│           ├── report.py
+│           ├── automation.py
+│           ├── setting.py
+│           ├── notification.py
+│           ├── specialist.py
+│           └── common.py             # Shared schemas (pagination, filters)
+│
+├── core/                             # Core configuration
+│   ├── __init__.py
+│   ├── config.py                     # Settings (Pydantic BaseSettings)
+│   ├── security.py                   # Password hashing, JWT, OAuth2
+│   ├── database.py                   # Database session management
+│   ├── encryption.py                 # Field-level encryption (AES-256)
+│   └── events.py                     # Startup/shutdown events
+│
+├── models/                           # SQLAlchemy ORM models
+│   ├── __init__.py
+│   ├── base.py                       # Base model with audit fields
+│   ├── mixins.py                     # Common mixins (SoftDelete, Timestamps)
+│   ├── user.py                       # User authentication
+│   ├── practice.py                   # Multi-tenant practice
+│   ├── patient.py                    # Patient demographics
+│   ├── appointment.py                # Appointments
+│   ├── provider.py                   # Providers and schedules
+│   ├── staff.py                      # Staff and roles
+│   ├── claim.py                      # Claims, diagnosis codes, procedure codes
+│   ├── referral.py                   # Referrals and specialists
+│   ├── communication.py              # Messages and templates
+│   ├── document.py                   # Document metadata
+│   ├── medical_record.py             # Allergies, medications, conditions, etc.
+│   ├── insurance.py                  # Insurance policies and verification
+│   ├── automation.py                 # Automation rules and executions
+│   ├── notification.py               # User notifications
+│   ├── audit_log.py                  # Comprehensive audit trail
+│   ├── permission.py                 # RBAC permissions
+│   └── file_storage.py               # File metadata and S3 references
+│
+├── services/                         # Business logic layer
+│   ├── __init__.py
+│   ├── auth_service.py               # Authentication logic
+│   ├── patient_service.py            # Patient operations
+│   ├── appointment_service.py        # Appointment scheduling
+│   ├── provider_service.py           # Provider management
+│   ├── staff_service.py              # Staff management
+│   ├── claim_service.py              # Claims processing
+│   ├── referral_service.py           # Referral workflow
+│   ├── communication_service.py      # Message sending logic
+│   ├── document_service.py           # Document handling
+│   ├── medical_record_service.py     # EHR operations
+│   ├── insurance_service.py          # Insurance verification
+│   ├── report_service.py             # Analytics generation
+│   ├── automation_service.py         # Rule execution engine
+│   ├── notification_service.py       # Real-time notifications
+│   └── audit_service.py              # Audit logging
+│
+├── integrations/                     # External service integrations
+│   ├── __init__.py
+│   ├── base.py                       # Base integration interface
+│   ├── email/                        # Email service abstraction
+│   │   ├── __init__.py
+│   │   ├── base.py                   # Email interface
+│   │   ├── sendgrid.py               # SendGrid implementation
+│   │   └── ses.py                    # AWS SES implementation
+│   ├── sms/                          # SMS service abstraction
+│   │   ├── __init__.py
+│   │   ├── base.py                   # SMS interface
+│   │   └── twilio.py                 # Twilio implementation
+│   ├── storage/                      # File storage abstraction
+│   │   ├── __init__.py
+│   │   ├── base.py                   # Storage interface
+│   │   ├── local.py                  # Local filesystem
+│   │   └── s3.py                     # AWS S3 implementation
+│   └── payments/                     # Payment processing
+│       ├── __init__.py
+│       ├── base.py                   # Payment interface
+│       └── stripe.py                 # Stripe implementation
+│
+├── middleware/                       # Custom middleware
+│   ├── __init__.py
+│   ├── audit.py                      # Automatic audit logging
+│   ├── error_handler.py              # Global error handling
+│   ├── cors.py                       # CORS configuration
+│   └── rate_limit.py                 # Rate limiting
+│
+├── utils/                            # Utility functions
+│   ├── __init__.py
+│   ├── pagination.py                 # Pagination helpers
+│   ├── validators.py                 # Custom validators (NPI, MRN, etc.)
+│   ├── date_utils.py                 # Date/time helpers
+│   └── response.py                   # Standard response formats
+│
+├── migrations/                       # Alembic migrations
+│   ├── versions/                     # Migration files
+│   └── env.py                        # Alembic environment
+│
+├── scripts/                          # Utility scripts
+│   ├── __init__.py
+│   ├── seed.py                       # Database seeding
+│   ├── create_superuser.py           # Admin user creation
+│   └── generate_test_data.py         # Generate mock data
+│
+└── tests/                            # Test suite
+    ├── __init__.py
+    ├── conftest.py                   # Pytest fixtures
+    ├── test_api/                     # API endpoint tests
+    ├── test_services/                # Service layer tests
+    ├── test_models/                  # Model tests
+    └── test_integrations/            # Integration tests
+    </structure>
+  </directory-structure>
+
+  <implementation-requirements>
+
+    <!-- ============================================ -->
+    <!-- SECTION 1: CORE CONFIGURATION -->
+    <!-- ============================================ -->
+
+    <section name="core-configuration">
+      <file path="backend/core/config.py">
+        <description>
+          Application configuration using Pydantic BaseSettings.
+          Load from environment variables with validation.
+        </description>
+        <requirements>
+          <requirement>Use Pydantic BaseSettings for configuration management</requirement>
+          <requirement>Support multiple environments (development, staging, production)</requirement>
+          <requirement>Include database URL, JWT secret, AWS credentials, API keys</requirement>
+          <requirement>Validate required settings on startup</requirement>
+          <requirement>Support .env file loading</requirement>
+        </requirements>
+        <example-structure>
+```python
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+class Settings(BaseSettings):
+    # App settings
+    APP_NAME: str = "Healthcare Practice Management API"
+    VERSION: str = "1.0.0"
+    DEBUG: bool = False
+    ENVIRONMENT: str = "development"
+
+    # Database
+    DATABASE_URL: str
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+
+    # Security
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # CORS
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    # AWS
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_REGION: str = "us-east-1"
+    S3_BUCKET_NAME: Optional[str] = None
+
+    # External APIs
+    SENDGRID_API_KEY: Optional[str] = None
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[str] = None
+    TWILIO_PHONE_NUMBER: Optional[str] = None
+    STRIPE_SECRET_KEY: Optional[str] = None
+
+    # Encryption
+    ENCRYPTION_KEY: str  # AES-256 key for field encryption
+
+    # File upload
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    ALLOWED_EXTENSIONS: list[str] = [".pdf", ".jpg", ".png", ".docx"]
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+settings = Settings()
+```
+        </example-structure>
+      </file>
+
+      <file path="backend/core/security.py">
+        <description>
+          Security utilities: password hashing, JWT token creation/validation,
+          OAuth2 scheme, permission checking.
+        </description>
+        <requirements>
+          <requirement>Use passlib with bcrypt for password hashing</requirement>
+          <requirement>Implement JWT token creation and validation</requirement>
+          <requirement>Create OAuth2 password bearer scheme</requirement>
+          <requirement>Add role and permission checking decorators</requirement>
+          <requirement>Support access and refresh tokens</requirement>
+        </requirements>
+        <example-structure>
+```python
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def create_refresh_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+# Add permission checking, role verification functions
+```
+        </example-structure>
+      </file>
+
+      <file path="backend/core/database.py">
+        <description>
+          Database connection management with async SQLAlchemy.
+        </description>
+        <requirements>
+          <requirement>Use SQLAlchemy 2.0 async engine</requirement>
+          <requirement>Create async session factory</requirement>
+          <requirement>Implement get_db dependency for FastAPI</requirement>
+          <requirement>Configure connection pooling</requirement>
+          <requirement>Add database health check</requirement>
+        </requirements>
+        <example-structure>
+```python
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from typing import AsyncGenerator
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    echo=settings.DEBUG,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+Base = declarative_base()
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+```
+        </example-structure>
+      </file>
+
+      <file path="backend/core/encryption.py">
+        <description>
+          Field-level encryption for sensitive data (SSN, DOB, medical info).
+        </description>
+        <requirements>
+          <requirement>Use AES-256 encryption with Fernet (cryptography library)</requirement>
+          <requirement>Create encrypt/decrypt functions</requirement>
+          <requirement>Implement SQLAlchemy custom type for encrypted fields</requirement>
+          <requirement>Ensure encryption key is stored securely</requirement>
+        </requirements>
+        <example-structure>
+```python
+from cryptography.fernet import Fernet
+from sqlalchemy import TypeDecorator, String
+import base64
+
+class EncryptedString(TypeDecorator):
+    impl = String
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cipher = Fernet(settings.ENCRYPTION_KEY.encode())
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return self.cipher.encrypt(value.encode()).decode()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return self.cipher.decrypt(value.encode()).decode()
+        return value
+```
+        </example-structure>
+      </file>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 2: DATABASE MODELS -->
+    <!-- ============================================ -->
+
+    <section name="database-models">
+
+      <file path="backend/models/base.py">
+        <description>
+          Base model class with common fields (id, created_at, updated_at, created_by, updated_by).
+        </description>
+        <requirements>
+          <requirement>Create BaseModel with UUID primary key</requirement>
+          <requirement>Add timestamp fields (created_at, updated_at)</requirement>
+          <requirement>Add audit fields (created_by, updated_by)</requirement>
+          <requirement>Use SQLAlchemy 2.0 syntax with Mapped, mapped_column</requirement>
+        </requirements>
+        <example-structure>
+```python
+from sqlalchemy import Column, DateTime, String, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from datetime import datetime
+import uuid
+
+class Base(DeclarativeBase):
+    pass
+
+class BaseModel(Base):
+    __abstract__ = True
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True)
+    updated_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True)
+```
+        </example-structure>
+      </file>
+
+      <file path="backend/models/mixins.py">
+        <description>
+          Reusable mixins for soft delete, multi-tenancy.
+        </description>
+        <requirements>
+          <requirement>Create SoftDeleteMixin with deleted_at field</requirement>
+          <requirement>Create MultiTenantMixin with practice_id field</requirement>
+          <requirement>Add helper methods (is_deleted, soft_delete, restore)</requirement>
+        </requirements>
+        <example-structure>
+```python
+from sqlalchemy import Column, DateTime, Boolean, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime
+from typing import Optional
+import uuid
+
+class SoftDeleteMixin:
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    def soft_delete(self):
+        self.is_deleted = True
+        self.deleted_at = datetime.utcnow()
+
+    def restore(self):
+        self.is_deleted = False
+        self.deleted_at = None
+
+class MultiTenantMixin:
+    practice_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("practices.id"),
+        nullable=False,
+        index=True
+    )
+```
+        </example-structure>
+      </file>
+
+      <database-schema>
+        <description>
+          Complete database schema with 35+ tables covering all features.
+          Each model should inherit from BaseModel and include appropriate mixins.
+        </description>
+
+        <table name="practices">
+          <description>Multi-tenant practice entity</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="name" type="String(255)" nullable="false"/>
+            <field name="npi" type="String(10)" unique="true"/>
+            <field name="tax_id" type="String(50)"/>
+            <field name="email" type="String(255)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="fax" type="String(20)"/>
+            <field name="website" type="String(255)"/>
+            <field name="address_line1" type="String(255)"/>
+            <field name="address_line2" type="String(255)"/>
+            <field name="city" type="String(100)"/>
+            <field name="state" type="String(2)"/>
+            <field name="zip_code" type="String(10)"/>
+            <field name="timezone" type="String(50)" default="America/New_York"/>
+            <field name="logo_url" type="String(500)"/>
+            <field name="business_hours" type="JSONB"/>
+            <field name="is_active" type="Boolean" default="true"/>
+            <field name="settings" type="JSONB"/>
+          </fields>
+          <indexes>
+            <index columns="npi"/>
+            <index columns="is_active"/>
+          </indexes>
+        </table>
+
+        <table name="users">
+          <description>Authentication and user accounts</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="email" type="String(255)" unique="true" nullable="false"/>
+            <field name="hashed_password" type="String(255)" nullable="false"/>
+            <field name="full_name" type="String(255)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="avatar_url" type="String(500)"/>
+            <field name="role" type="String(50)"/>
+            <field name="is_active" type="Boolean" default="true"/>
+            <field name="is_verified" type="Boolean" default="false"/>
+            <field name="last_login" type="DateTime"/>
+            <field name="failed_login_attempts" type="Integer" default="0"/>
+            <field name="locked_until" type="DateTime"/>
+            <field name="preferences" type="JSONB"/>
+          </fields>
+          <indexes>
+            <index columns="email" unique="true"/>
+            <index columns="practice_id, email"/>
+            <index columns="is_active"/>
+          </indexes>
+        </table>
+
+        <table name="patients">
+          <description>Patient demographics and information</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="mrn" type="String(50)" comment="Medical Record Number"/>
+            <field name="first_name" type="String(100)" nullable="false"/>
+            <field name="last_name" type="String(100)" nullable="false"/>
+            <field name="middle_name" type="String(100)"/>
+            <field name="date_of_birth" type="Date" encrypted="true" nullable="false"/>
+            <field name="gender" type="String(20)"/>
+            <field name="ssn" type="String(50)" encrypted="true"/>
+            <field name="email" type="String(255)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="phone_secondary" type="String(20)"/>
+            <field name="address_line1" type="String(255)"/>
+            <field name="address_line2" type="String(255)"/>
+            <field name="city" type="String(100)"/>
+            <field name="state" type="String(2)"/>
+            <field name="zip_code" type="String(10)"/>
+            <field name="emergency_contact_name" type="String(255)"/>
+            <field name="emergency_contact_phone" type="String(20)"/>
+            <field name="emergency_contact_relationship" type="String(50)"/>
+            <field name="primary_provider_id" type="UUID" foreign-key="providers.id"/>
+            <field name="status" type="String(20)" default="active"/>
+            <field name="tags" type="ARRAY(String)"/>
+            <field name="notes" type="Text"/>
+            <field name="photo_url" type="String(500)"/>
+            <field name="preferred_language" type="String(50)"/>
+            <field name="communication_preferences" type="JSONB"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id, mrn" unique="true"/>
+            <index columns="practice_id, last_name, first_name"/>
+            <index columns="practice_id, email"/>
+            <index columns="practice_id, phone"/>
+            <index columns="primary_provider_id"/>
+            <index columns="status"/>
+          </indexes>
+          <mixins>
+            <mixin>MultiTenantMixin</mixin>
+            <mixin>SoftDeleteMixin</mixin>
+          </mixins>
+        </table>
+
+        <table name="providers">
+          <description>Healthcare providers (doctors, nurses, etc.)</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="user_id" type="UUID" foreign-key="users.id"/>
+            <field name="npi" type="String(10)" unique="true"/>
+            <field name="title" type="String(50)"/>
+            <field name="specialty" type="String(100)"/>
+            <field name="department" type="String(100)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="email" type="String(255)"/>
+            <field name="accepting_new_patients" type="Boolean" default="true"/>
+            <field name="status" type="String(20)" default="active"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="npi" unique="true"/>
+            <index columns="status"/>
+          </indexes>
+        </table>
+
+        <table name="provider_schedules">
+          <description>Provider availability schedules</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="provider_id" type="UUID" foreign-key="providers.id"/>
+            <field name="day_of_week" type="Integer" comment="0=Monday, 6=Sunday"/>
+            <field name="start_time" type="Time"/>
+            <field name="end_time" type="Time"/>
+            <field name="is_available" type="Boolean" default="true"/>
+            <field name="location" type="String(255)"/>
+          </fields>
+          <indexes>
+            <index columns="provider_id, day_of_week"/>
+          </indexes>
+        </table>
+
+        <table name="staff">
+          <description>Non-provider staff members</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="user_id" type="UUID" foreign-key="users.id"/>
+            <field name="role" type="String(50)" comment="receptionist, nurse, billing, etc."/>
+            <field name="department" type="String(100)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="email" type="String(255)"/>
+            <field name="status" type="String(20)" default="active"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="user_id"/>
+          </indexes>
+        </table>
+
+        <table name="appointments">
+          <description>Patient appointments</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="provider_id" type="UUID" foreign-key="providers.id" nullable="false"/>
+            <field name="appointment_type" type="String(50)" nullable="false"/>
+            <field name="start_time" type="DateTime" nullable="false"/>
+            <field name="end_time" type="DateTime" nullable="false"/>
+            <field name="duration_minutes" type="Integer"/>
+            <field name="status" type="String(30)" default="scheduled"/>
+            <field name="room" type="String(50)"/>
+            <field name="reason" type="Text"/>
+            <field name="notes" type="Text"/>
+            <field name="is_telehealth" type="Boolean" default="false"/>
+            <field name="telehealth_link" type="String(500)"/>
+            <field name="recurring_appointment_id" type="UUID" foreign-key="appointments.id"/>
+            <field name="checked_in_at" type="DateTime"/>
+            <field name="checked_out_at" type="DateTime"/>
+            <field name="cancelled_at" type="DateTime"/>
+            <field name="cancellation_reason" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="patient_id"/>
+            <index columns="provider_id"/>
+            <index columns="start_time"/>
+            <index columns="status"/>
+            <index columns="practice_id, start_time, provider_id"/>
+          </indexes>
+        </table>
+
+        <table name="appointment_reminders">
+          <description>Appointment reminder tracking</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="appointment_id" type="UUID" foreign-key="appointments.id"/>
+            <field name="reminder_type" type="String(20)" comment="email, sms, phone"/>
+            <field name="scheduled_for" type="DateTime"/>
+            <field name="sent_at" type="DateTime"/>
+            <field name="status" type="String(20)" default="pending"/>
+            <field name="error_message" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="appointment_id"/>
+            <index columns="scheduled_for, status"/>
+          </indexes>
+        </table>
+
+        <table name="insurance_policies">
+          <description>Patient insurance information</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="provider_name" type="String(255)" nullable="false"/>
+            <field name="policy_number" type="String(100)" nullable="false"/>
+            <field name="group_number" type="String(100)"/>
+            <field name="subscriber_name" type="String(255)"/>
+            <field name="subscriber_relationship" type="String(50)"/>
+            <field name="subscriber_dob" type="Date"/>
+            <field name="is_primary" type="Boolean" default="true"/>
+            <field name="effective_date" type="Date"/>
+            <field name="expiration_date" type="Date"/>
+            <field name="copay_amount" type="Numeric(10,2)"/>
+            <field name="deductible_amount" type="Numeric(10,2)"/>
+            <field name="out_of_pocket_max" type="Numeric(10,2)"/>
+            <field name="coinsurance_percentage" type="Numeric(5,2)"/>
+            <field name="verification_status" type="String(20)"/>
+            <field name="verified_at" type="DateTime"/>
+            <field name="verified_by" type="UUID" foreign-key="users.id"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="patient_id"/>
+            <index columns="practice_id, policy_number"/>
+          </indexes>
+        </table>
+
+        <table name="claims">
+          <description>Billing claims</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="claim_number" type="String(50)" unique="true" nullable="false"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="provider_id" type="UUID" foreign-key="providers.id" nullable="false"/>
+            <field name="insurance_policy_id" type="UUID" foreign-key="insurance_policies.id"/>
+            <field name="service_date" type="Date" nullable="false"/>
+            <field name="submission_date" type="Date"/>
+            <field name="status" type="String(30)" default="draft"/>
+            <field name="total_billed" type="Numeric(10,2)" default="0"/>
+            <field name="total_allowed" type="Numeric(10,2)" default="0"/>
+            <field name="total_paid" type="Numeric(10,2)" default="0"/>
+            <field name="patient_responsibility" type="Numeric(10,2)" default="0"/>
+            <field name="denial_reason" type="Text"/>
+            <field name="appeal_date" type="Date"/>
+            <field name="appeal_notes" type="Text"/>
+            <field name="paid_date" type="Date"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="claim_number" unique="true"/>
+            <index columns="patient_id"/>
+            <index columns="provider_id"/>
+            <index columns="status"/>
+            <index columns="service_date"/>
+          </indexes>
+        </table>
+
+        <table name="claim_diagnosis_codes">
+          <description>ICD-10 diagnosis codes for claims</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="claim_id" type="UUID" foreign-key="claims.id" nullable="false"/>
+            <field name="code" type="String(10)" nullable="false"/>
+            <field name="description" type="String(500)"/>
+            <field name="is_primary" type="Boolean" default="false"/>
+            <field name="sequence" type="Integer"/>
+          </fields>
+          <indexes>
+            <index columns="claim_id"/>
+          </indexes>
+        </table>
+
+        <table name="claim_procedure_codes">
+          <description>CPT procedure codes for claims</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="claim_id" type="UUID" foreign-key="claims.id" nullable="false"/>
+            <field name="code" type="String(10)" nullable="false"/>
+            <field name="description" type="String(500)"/>
+            <field name="quantity" type="Integer" default="1"/>
+            <field name="unit_price" type="Numeric(10,2)"/>
+            <field name="total_price" type="Numeric(10,2)"/>
+            <field name="modifier" type="String(10)"/>
+            <field name="sequence" type="Integer"/>
+          </fields>
+          <indexes>
+            <index columns="claim_id"/>
+          </indexes>
+        </table>
+
+        <table name="specialists">
+          <description>External specialist directory</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="first_name" type="String(100)" nullable="false"/>
+            <field name="last_name" type="String(100)" nullable="false"/>
+            <field name="npi" type="String(10)"/>
+            <field name="specialty" type="String(100)" nullable="false"/>
+            <field name="practice_name" type="String(255)"/>
+            <field name="phone" type="String(20)"/>
+            <field name="fax" type="String(20)"/>
+            <field name="email" type="String(255)"/>
+            <field name="address_line1" type="String(255)"/>
+            <field name="address_line2" type="String(255)"/>
+            <field name="city" type="String(100)"/>
+            <field name="state" type="String(2)"/>
+            <field name="zip_code" type="String(10)"/>
+            <field name="accepted_insurance" type="ARRAY(String)"/>
+            <field name="preferred_contact_method" type="String(20)"/>
+            <field name="rating" type="Numeric(3,2)"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="specialty"/>
+            <index columns="npi"/>
+          </indexes>
+        </table>
+
+        <table name="referrals">
+          <description>Patient referrals to specialists</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="referring_provider_id" type="UUID" foreign-key="providers.id" nullable="false"/>
+            <field name="specialist_id" type="UUID" foreign-key="specialists.id"/>
+            <field name="specialty" type="String(100)" nullable="false"/>
+            <field name="reason" type="Text" nullable="false"/>
+            <field name="urgency" type="String(20)" default="routine"/>
+            <field name="status" type="String(30)" default="pending"/>
+            <field name="authorization_number" type="String(100)"/>
+            <field name="authorization_required" type="Boolean" default="false"/>
+            <field name="notes" type="Text"/>
+            <field name="sent_date" type="Date"/>
+            <field name="appointment_scheduled_date" type="Date"/>
+            <field name="completed_date" type="Date"/>
+            <field name="specialist_feedback" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="patient_id"/>
+            <index columns="referring_provider_id"/>
+            <index columns="specialist_id"/>
+            <index columns="status"/>
+          </indexes>
+        </table>
+
+        <table name="message_templates">
+          <description>Communication message templates</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="name" type="String(255)" nullable="false"/>
+            <field name="category" type="String(50)"/>
+            <field name="message_type" type="String(20)" comment="email, sms"/>
+            <field name="subject" type="String(500)"/>
+            <field name="body" type="Text" nullable="false"/>
+            <field name="variables" type="ARRAY(String)"/>
+            <field name="is_active" type="Boolean" default="true"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="category"/>
+          </indexes>
+        </table>
+
+        <table name="messages">
+          <description>Communication messages</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id"/>
+            <field name="sender_id" type="UUID" foreign-key="users.id"/>
+            <field name="recipient_id" type="UUID" foreign-key="users.id"/>
+            <field name="template_id" type="UUID" foreign-key="message_templates.id"/>
+            <field name="message_type" type="String(20)" nullable="false"/>
+            <field name="subject" type="String(500)"/>
+            <field name="body" type="Text" nullable="false"/>
+            <field name="status" type="String(20)" default="draft"/>
+            <field name="priority" type="String(20)" default="normal"/>
+            <field name="sent_at" type="DateTime"/>
+            <field name="delivered_at" type="DateTime"/>
+            <field name="read_at" type="DateTime"/>
+            <field name="failed_at" type="DateTime"/>
+            <field name="error_message" type="Text"/>
+            <field name="thread_id" type="UUID" foreign-key="messages.id"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="patient_id"/>
+            <index columns="sender_id"/>
+            <index columns="recipient_id"/>
+            <index columns="status"/>
+            <index columns="thread_id"/>
+          </indexes>
+        </table>
+
+        <table name="documents">
+          <description>Document metadata and storage references</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id"/>
+            <field name="uploaded_by" type="UUID" foreign-key="users.id"/>
+            <field name="document_type" type="String(50)" nullable="false"/>
+            <field name="title" type="String(255)" nullable="false"/>
+            <field name="description" type="Text"/>
+            <field name="file_name" type="String(255)" nullable="false"/>
+            <field name="file_size" type="BigInteger"/>
+            <field name="mime_type" type="String(100)"/>
+            <field name="storage_path" type="String(500)" comment="S3 key or local path"/>
+            <field name="storage_bucket" type="String(100)"/>
+            <field name="file_hash" type="String(64)" comment="SHA-256 for integrity"/>
+            <field name="is_encrypted" type="Boolean" default="true"/>
+            <field name="version" type="Integer" default="1"/>
+            <field name="parent_document_id" type="UUID" foreign-key="documents.id"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="patient_id"/>
+            <index columns="document_type"/>
+            <index columns="file_hash"/>
+          </indexes>
+        </table>
+
+        <table name="medical_allergies">
+          <description>Patient allergies</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="allergen" type="String(255)" nullable="false"/>
+            <field name="reaction" type="String(255)"/>
+            <field name="severity" type="String(20)" comment="mild, moderate, severe"/>
+            <field name="onset_date" type="Date"/>
+            <field name="status" type="String(20)" default="active"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="patient_id"/>
+            <index columns="status"/>
+          </indexes>
+        </table>
+
+        <table name="medical_medications">
+          <description>Patient current medications</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="medication_name" type="String(255)" nullable="false"/>
+            <field name="dosage" type="String(100)"/>
+            <field name="frequency" type="String(100)"/>
+            <field name="route" type="String(50)" comment="oral, IV, topical, etc."/>
+            <field name="start_date" type="Date"/>
+            <field name="end_date" type="Date"/>
+            <field name="prescribed_by" type="UUID" foreign-key="providers.id"/>
+            <field name="status" type="String(20)" default="active"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="patient_id"/>
+            <index columns="status"/>
+          </indexes>
+        </table>
+
+        <table name="medical_conditions">
+          <description>Patient chronic conditions</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="condition_name" type="String(255)" nullable="false"/>
+            <field name="icd10_code" type="String(10)"/>
+            <field name="diagnosis_date" type="Date"/>
+            <field name="diagnosed_by" type="UUID" foreign-key="providers.id"/>
+            <field name="status" type="String(20)" default="active"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="patient_id"/>
+            <index columns="status"/>
+          </indexes>
+        </table>
+
+        <table name="medical_immunizations">
+          <description>Patient immunization records</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="patient_id" type="UUID" foreign-key="patients.id" nullable="false"/>
+            <field name="vaccine_name" type="String(255)" nullable="false"/>
+            <field name="administration_date" type="Date" nullable="false"/>
+            <field name="lot_number" type="String(100)"/>
+            <field name="expiration_date" type="Date"/>
+            <field name="administered_by" type="UUID" foreign-key="providers.id"/>
+            <field name="site" type="String(100)" comment="left arm, right arm, etc."/>
+            <field name="route" type="String(50)"/>
+            <field name="dosage" type="String(50)"/>
+            <field name="notes" type="Text"/>
+          </fields>
+          <indexes>
+            <index columns="patient_id"/>
+          </indexes>
+        </table>
+
+        <table name="automation_rules">
+          <description>Automation rules configuration</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="name" type="String(255)" nullable="false"/>
+            <field name="description" type="Text"/>
+            <field name="trigger_type" type="String(50)" nullable="false"/>
+            <field name="trigger_config" type="JSONB" nullable="false"/>
+            <field name="conditions" type="JSONB"/>
+            <field name="actions" type="JSONB" nullable="false"/>
+            <field name="is_active" type="Boolean" default="true"/>
+            <field name="execution_count" type="Integer" default="0"/>
+            <field name="last_executed_at" type="DateTime"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="is_active"/>
+          </indexes>
+        </table>
+
+        <table name="automation_executions">
+          <description>Automation rule execution history</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="rule_id" type="UUID" foreign-key="automation_rules.id" nullable="false"/>
+            <field name="executed_at" type="DateTime" nullable="false"/>
+            <field name="status" type="String(20)" comment="success, failure"/>
+            <field name="execution_time_ms" type="Integer"/>
+            <field name="error_message" type="Text"/>
+            <field name="context" type="JSONB"/>
+          </fields>
+          <indexes>
+            <index columns="rule_id"/>
+            <index columns="executed_at"/>
+          </indexes>
+        </table>
+
+        <table name="notifications">
+          <description>User notifications</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="user_id" type="UUID" foreign-key="users.id" nullable="false"/>
+            <field name="type" type="String(50)" nullable="false"/>
+            <field name="title" type="String(255)" nullable="false"/>
+            <field name="message" type="Text"/>
+            <field name="priority" type="String(20)" default="normal"/>
+            <field name="is_read" type="Boolean" default="false"/>
+            <field name="read_at" type="DateTime"/>
+            <field name="action_url" type="String(500)"/>
+            <field name="related_entity_type" type="String(50)"/>
+            <field name="related_entity_id" type="UUID"/>
+          </fields>
+          <indexes>
+            <index columns="user_id"/>
+            <index columns="is_read"/>
+            <index columns="created_at"/>
+          </indexes>
+        </table>
+
+        <table name="permissions">
+          <description>Role-based access control permissions</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="role" type="String(50)" nullable="false"/>
+            <field name="resource" type="String(100)" nullable="false"/>
+            <field name="action" type="String(50)" nullable="false"/>
+            <field name="allowed" type="Boolean" default="true"/>
+          </fields>
+          <indexes>
+            <index columns="role, resource, action" unique="true"/>
+          </indexes>
+        </table>
+
+        <table name="audit_logs">
+          <description>Comprehensive audit trail for HIPAA compliance</description>
+          <fields>
+            <field name="id" type="UUID" primary-key="true"/>
+            <field name="practice_id" type="UUID" foreign-key="practices.id"/>
+            <field name="user_id" type="UUID" foreign-key="users.id"/>
+            <field name="action" type="String(50)" nullable="false"/>
+            <field name="entity_type" type="String(50)" nullable="false"/>
+            <field name="entity_id" type="UUID" nullable="false"/>
+            <field name="changes" type="JSONB" comment="before/after values"/>
+            <field name="ip_address" type="String(45)"/>
+            <field name="user_agent" type="String(500)"/>
+            <field name="timestamp" type="DateTime" nullable="false"/>
+          </fields>
+          <indexes>
+            <index columns="practice_id"/>
+            <index columns="user_id"/>
+            <index columns="entity_type, entity_id"/>
+            <index columns="timestamp"/>
+          </indexes>
+        </table>
+
+      </database-schema>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 3: PYDANTIC SCHEMAS -->
+    <!-- ============================================ -->
+
+    <section name="pydantic-schemas">
+      <description>
+        Create Pydantic schemas for request/response validation for ALL models.
+        Follow these patterns for each entity.
+      </description>
+
+      <schema-patterns>
+        <pattern name="base-schema">
+          <description>Each entity should have these schema classes</description>
+          <classes>
+            <class name="EntityBase">Base schema with common fields</class>
+            <class name="EntityCreate">Fields required for creation (no id)</class>
+            <class name="EntityUpdate">All fields optional for partial updates</class>
+            <class name="EntityInDBBase">Adds database fields (id, timestamps)</class>
+            <class name="Entity">Response schema (inherits EntityInDBBase)</class>
+          </classes>
+        </pattern>
+
+        <example-file path="backend/api/v1/schemas/patient.py">
+```python
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from typing import Optional
+from datetime import date, datetime
+import uuid
+
+class PatientBase(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    middle_name: Optional[str] = None
+    date_of_birth: date
+    gender: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    address_line1: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = Field(None, max_length=2)
+    zip_code: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    primary_provider_id: Optional[uuid.UUID] = None
+    tags: Optional[list[str]] = []
+    notes: Optional[str] = None
+
+class PatientCreate(PatientBase):
+    pass
+
+class PatientUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    # ... all fields optional
+
+class PatientInDBBase(PatientBase):
+    id: uuid.UUID
+    practice_id: uuid.UUID
+    mrn: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class Patient(PatientInDBBase):
+    pass
+
+class PatientWithRelations(Patient):
+    primary_provider: Optional["Provider"] = None
+    insurance_policies: list["InsurancePolicy"] = []
+    appointments: list["Appointment"] = []
+```
+        </example-file>
+      </schema-patterns>
+
+      <requirements>
+        <requirement>Create schemas for ALL 35+ database models</requirement>
+        <requirement>Use Pydantic v2 syntax (ConfigDict, Field)</requirement>
+        <requirement>Add validation (email, phone, NPI, etc.)</requirement>
+        <requirement>Include nested schemas for relationships (optional)</requirement>
+        <requirement>Create filter schemas for list endpoints</requirement>
+        <requirement>Create pagination schemas (PaginatedResponse)</requirement>
+      </requirements>
+
+      <common-schemas path="backend/api/v1/schemas/common.py">
+        <description>Shared schemas used across endpoints</description>
+```python
+from pydantic import BaseModel, Field
+from typing import Generic, TypeVar, Optional
+
+T = TypeVar('T')
+
+class PaginationParams(BaseModel):
+    skip: int = Field(0, ge=0)
+    limit: int = Field(100, ge=1, le=1000)
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    skip: int
+    limit: int
+    has_more: bool
+
+class SuccessResponse(BaseModel):
+    success: bool = True
+    message: str
+
+class ErrorResponse(BaseModel):
+    success: bool = False
+    message: str
+    errors: Optional[dict] = None
+```
+      </common-schemas>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 4: API ENDPOINTS -->
+    <!-- ============================================ -->
+
+    <section name="api-endpoints">
+      <description>
+        Create comprehensive RESTful API endpoints for all entities.
+        Follow FastAPI best practices with proper dependency injection.
+      </description>
+
+      <endpoint-patterns>
+        <pattern>
+          For each major entity, implement these endpoints:
+          - GET    /api/v1/{entity}            - List with pagination, filtering, search
+          - POST   /api/v1/{entity}            - Create new
+          - GET    /api/v1/{entity}/{id}       - Get by ID
+          - PUT    /api/v1/{entity}/{id}       - Full update
+          - PATCH  /api/v1/{entity}/{id}       - Partial update
+          - DELETE /api/v1/{entity}/{id}       - Delete (soft delete)
+        </pattern>
+      </endpoint-patterns>
+
+      <example-endpoint path="backend/api/v1/endpoints/patients.py">
+        <description>Comprehensive patient management endpoints</description>
+```python
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+import uuid
+
+from api import deps
+from api.v1.schemas.patient import Patient, PatientCreate, PatientUpdate, PatientWithRelations
+from api.v1.schemas.common import PaginatedResponse, SuccessResponse
+from services.patient_service import PatientService
+from models.user import User
+
+router = APIRouter()
+
+@router.get("/", response_model=PaginatedResponse[Patient])
+async def list_patients(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = Query(None, description="Search by name, MRN, email, phone"),
+    status: Optional[str] = Query(None),
+    provider_id: Optional[uuid.UUID] = Query(None),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    List patients with filtering and search.
+    """
+    service = PatientService(db)
+    patients, total = await service.list_patients(
+        practice_id=current_user.practice_id,
+        skip=skip,
+        limit=limit,
+        search=search,
+        status=status,
+        provider_id=provider_id,
+    )
+    return PaginatedResponse(
+        items=patients,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=(skip + limit) < total
+    )
+
+@router.post("/", response_model=Patient, status_code=status.HTTP_201_CREATED)
+async def create_patient(
+    patient_in: PatientCreate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Create new patient.
+    """
+    service = PatientService(db)
+    return await service.create_patient(
+        practice_id=current_user.practice_id,
+        patient_data=patient_in,
+        created_by=current_user.id
+    )
+
+@router.get("/{patient_id}", response_model=PatientWithRelations)
+async def get_patient(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Get patient by ID with related data.
+    """
+    service = PatientService(db)
+    patient = await service.get_patient_by_id(
+        patient_id=patient_id,
+        practice_id=current_user.practice_id
+    )
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+@router.patch("/{patient_id}", response_model=Patient)
+async def update_patient(
+    patient_id: uuid.UUID,
+    patient_in: PatientUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Partially update patient.
+    """
+    service = PatientService(db)
+    patient = await service.update_patient(
+        patient_id=patient_id,
+        practice_id=current_user.practice_id,
+        patient_data=patient_in,
+        updated_by=current_user.id
+    )
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return patient
+
+@router.delete("/{patient_id}", response_model=SuccessResponse)
+async def delete_patient(
+    patient_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Soft delete patient.
+    """
+    service = PatientService(db)
+    await service.delete_patient(
+        patient_id=patient_id,
+        practice_id=current_user.practice_id,
+        deleted_by=current_user.id
+    )
+    return SuccessResponse(message="Patient deleted successfully")
+```
+      </example-endpoint>
+
+      <special-endpoints>
+        <endpoint path="backend/api/v1/endpoints/auth.py">
+          <description>Authentication endpoints</description>
+          <endpoints>
+            <item>POST /api/v1/auth/register - User registration</item>
+            <item>POST /api/v1/auth/login - Login with email/password, return access + refresh tokens</item>
+            <item>POST /api/v1/auth/refresh - Refresh access token using refresh token</item>
+            <item>POST /api/v1/auth/logout - Invalidate tokens</item>
+            <item>GET /api/v1/auth/me - Get current user</item>
+            <item>POST /api/v1/auth/forgot-password - Password reset request</item>
+            <item>POST /api/v1/auth/reset-password - Password reset confirmation</item>
+          </endpoints>
+        </endpoint>
+
+        <endpoint path="backend/api/v1/endpoints/documents.py">
+          <description>Document upload/download</description>
+          <endpoints>
+            <item>POST /api/v1/documents/upload - Upload file (multipart/form-data)</item>
+            <item>GET /api/v1/documents/{document_id}/download - Generate signed URL</item>
+            <item>GET /api/v1/documents - List documents with filtering</item>
+            <item>DELETE /api/v1/documents/{document_id} - Delete document</item>
+          </endpoints>
+        </endpoint>
+
+        <endpoint path="backend/api/v1/endpoints/reports.py">
+          <description>Analytics and reporting</description>
+          <endpoints>
+            <item>GET /api/v1/reports/dashboard - Dashboard summary statistics</item>
+            <item>GET /api/v1/reports/appointments - Appointment analytics</item>
+            <item>GET /api/v1/reports/financial - Financial analytics</item>
+            <item>GET /api/v1/reports/patients - Patient demographics</item>
+            <item>GET /api/v1/reports/providers - Provider productivity</item>
+          </endpoints>
+        </endpoint>
+
+        <endpoint path="backend/api/v1/endpoints/websocket.py">
+          <description>WebSocket for real-time updates</description>
+```python
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from typing import Dict
+import uuid
+import json
+
+router = APIRouter()
+
+# Connection manager for WebSocket clients
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[uuid.UUID, WebSocket] = {}
+
+    async def connect(self, user_id: uuid.UUID, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections[user_id] = websocket
+
+    def disconnect(self, user_id: uuid.UUID):
+        self.active_connections.pop(user_id, None)
+
+    async def send_personal_message(self, message: dict, user_id: uuid.UUID):
+        if user_id in self.active_connections:
+            await self.active_connections[user_id].send_json(message)
+
+    async def broadcast(self, message: dict, practice_id: uuid.UUID):
+        # Send to all users in practice
+        for connection in self.active_connections.values():
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+
+@router.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: uuid.UUID):
+    await manager.connect(user_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Handle incoming messages if needed
+    except WebSocketDisconnect:
+        manager.disconnect(user_id)
+```
+        </endpoint>
+      </special-endpoints>
+
+      <requirements>
+        <requirement>Implement ALL CRUD endpoints for 35+ models</requirement>
+        <requirement>Add proper authentication dependency (get_current_user)</requirement>
+        <requirement>Enforce multi-tenancy (filter by practice_id)</requirement>
+        <requirement>Add search and filtering to list endpoints</requirement>
+        <requirement>Use proper HTTP status codes</requirement>
+        <requirement>Add comprehensive docstrings for OpenAPI docs</requirement>
+        <requirement>Implement error handling with HTTPException</requirement>
+        <requirement>Add request validation with Pydantic</requirement>
+      </requirements>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 5: SERVICE LAYER -->
+    <!-- ============================================ -->
+
+    <section name="service-layer">
+      <description>
+        Business logic layer between API endpoints and database models.
+        Services handle complex operations, validations, and cross-entity logic.
+      </description>
+
+      <example-service path="backend/services/patient_service.py">
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, func
+from typing import Optional, Tuple
+import uuid
+
+from models.patient import Patient
+from models.provider import Provider
+from api.v1.schemas.patient import PatientCreate, PatientUpdate
+from services.audit_service import AuditService
+
+class PatientService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.audit_service = AuditService(db)
+
+    async def list_patients(
+        self,
+        practice_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        provider_id: Optional[uuid.UUID] = None,
+    ) -> Tuple[list[Patient], int]:
+        """
+        List patients with filtering and search.
+        Returns tuple of (patients, total_count).
+        """
+        query = select(Patient).where(
+            Patient.practice_id == practice_id,
+            Patient.is_deleted == False
+        )
+
+        # Search
+        if search:
+            search_filter = or_(
+                Patient.first_name.ilike(f"%{search}%"),
+                Patient.last_name.ilike(f"%{search}%"),
+                Patient.mrn.ilike(f"%{search}%"),
+                Patient.email.ilike(f"%{search}%"),
+                Patient.phone.ilike(f"%{search}%"),
+            )
+            query = query.where(search_filter)
+
+        # Filters
+        if status:
+            query = query.where(Patient.status == status)
+        if provider_id:
+            query = query.where(Patient.primary_provider_id == provider_id)
+
+        # Count total
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.db.scalar(count_query)
+
+        # Get paginated results
+        query = query.offset(skip).limit(limit).order_by(Patient.last_name, Patient.first_name)
+        result = await self.db.execute(query)
+        patients = result.scalars().all()
+
+        return patients, total
+
+    async def get_patient_by_id(
+        self,
+        patient_id: uuid.UUID,
+        practice_id: uuid.UUID
+    ) -> Optional[Patient]:
+        """Get patient by ID with practice isolation."""
+        query = select(Patient).where(
+            Patient.id == patient_id,
+            Patient.practice_id == practice_id,
+            Patient.is_deleted == False
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def create_patient(
+        self,
+        practice_id: uuid.UUID,
+        patient_data: PatientCreate,
+        created_by: uuid.UUID
+    ) -> Patient:
+        """Create new patient with auto-generated MRN."""
+        # Generate MRN
+        mrn = await self._generate_mrn(practice_id)
+
+        patient = Patient(
+            **patient_data.model_dump(),
+            practice_id=practice_id,
+            mrn=mrn,
+            created_by=created_by,
+        )
+        self.db.add(patient)
+        await self.db.flush()
+
+        # Audit log
+        await self.audit_service.log_action(
+            user_id=created_by,
+            action="CREATE",
+            entity_type="patient",
+            entity_id=patient.id,
+            changes={"new": patient_data.model_dump()}
+        )
+
+        return patient
+
+    async def update_patient(
+        self,
+        patient_id: uuid.UUID,
+        practice_id: uuid.UUID,
+        patient_data: PatientUpdate,
+        updated_by: uuid.UUID
+    ) -> Optional[Patient]:
+        """Update patient with audit logging."""
+        patient = await self.get_patient_by_id(patient_id, practice_id)
+        if not patient:
+            return None
+
+        # Track changes for audit
+        old_values = {k: getattr(patient, k) for k in patient_data.model_dump(exclude_unset=True).keys()}
+
+        # Update fields
+        for field, value in patient_data.model_dump(exclude_unset=True).items():
+            setattr(patient, field, value)
+
+        patient.updated_by = updated_by
+
+        # Audit log
+        await self.audit_service.log_action(
+            user_id=updated_by,
+            action="UPDATE",
+            entity_type="patient",
+            entity_id=patient.id,
+            changes={"old": old_values, "new": patient_data.model_dump(exclude_unset=True)}
+        )
+
+        return patient
+
+    async def delete_patient(
+        self,
+        patient_id: uuid.UUID,
+        practice_id: uuid.UUID,
+        deleted_by: uuid.UUID
+    ):
+        """Soft delete patient."""
+        patient = await self.get_patient_by_id(patient_id, practice_id)
+        if not patient:
+            return
+
+        patient.soft_delete()
+        patient.updated_by = deleted_by
+
+        await self.audit_service.log_action(
+            user_id=deleted_by,
+            action="DELETE",
+            entity_type="patient",
+            entity_id=patient.id,
+            changes={}
+        )
+
+    async def _generate_mrn(self, practice_id: uuid.UUID) -> str:
+        """Generate unique MRN for practice."""
+        # Get max MRN for practice
+        query = select(func.max(Patient.mrn)).where(Patient.practice_id == practice_id)
+        last_mrn = await self.db.scalar(query)
+
+        if last_mrn:
+            # Extract number and increment
+            number = int(last_mrn.split('-')[1]) + 1
+        else:
+            number = 1
+
+        return f"MRN-{number:08d}"
+```
+      </example-service>
+
+      <requirements>
+        <requirement>Create service classes for ALL entities</requirement>
+        <requirement>Implement business logic (MRN generation, status workflows, etc.)</requirement>
+        <requirement>Add audit logging to all mutations</requirement>
+        <requirement>Handle multi-tenancy isolation</requirement>
+        <requirement>Implement soft delete logic</requirement>
+        <requirement>Add complex queries (search, filtering, aggregations)</requirement>
+        <requirement>Handle related entity operations</requirement>
+        <requirement>Add validation beyond Pydantic (business rules)</requirement>
+      </requirements>
+
+      <special-services>
+        <service name="auth_service.py">
+          <description>Handle authentication, password reset, token management</description>
+        </service>
+        <service name="communication_service.py">
+          <description>Send emails/SMS using integration layer</description>
+        </service>
+        <service name="document_service.py">
+          <description>Handle file uploads to S3, generate signed URLs</description>
+        </service>
+        <service name="automation_service.py">
+          <description>Rule execution engine, trigger evaluation</description>
+        </service>
+        <service name="notification_service.py">
+          <description>Create notifications, send via WebSocket</description>
+        </service>
+        <service name="audit_service.py">
+          <description>Centralized audit logging</description>
+        </service>
+      </special-services>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 6: INTEGRATIONS -->
+    <!-- ============================================ -->
+
+    <section name="integrations">
+      <description>
+        Abstraction layer for external services with interface pattern.
+        Easy to swap implementations and mock for testing.
+      </description>
+
+      <integration-pattern>
+        <description>Use abstract base class pattern for all integrations</description>
+
+        <example-base path="backend/integrations/email/base.py">
+```python
+from abc import ABC, abstractmethod
+from typing import Optional
+
+class EmailServiceInterface(ABC):
+    @abstractmethod
+    async def send_email(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        from_email: Optional[str] = None,
+        html_body: Optional[str] = None,
+        attachments: Optional[list] = None,
+    ) -> bool:
+        """Send email. Returns True if successful."""
+        pass
+
+    @abstractmethod
+    async def send_template_email(
+        self,
+        to: str,
+        template_id: str,
+        variables: dict,
+    ) -> bool:
+        """Send email using template."""
+        pass
+```
+        </example-base>
+
+        <example-implementation path="backend/integrations/email/sendgrid.py">
+```python
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+from integrations.email.base import EmailServiceInterface
+from core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SendGridEmailService(EmailServiceInterface):
+    def __init__(self):
+        self.client = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        self.default_from = settings.DEFAULT_FROM_EMAIL
+
+    async def send_email(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        from_email: Optional[str] = None,
+        html_body: Optional[str] = None,
+        attachments: Optional[list] = None,
+    ) -> bool:
+        try:
+            message = Mail(
+                from_email=from_email or self.default_from,
+                to_emails=to,
+                subject=subject,
+                plain_text_content=body,
+                html_content=html_body or body,
+            )
+
+            response = self.client.send(message)
+            return response.status_code in [200, 201, 202]
+        except Exception as e:
+            logger.error(f"Failed to send email: {e}")
+            return False
+
+    async def send_template_email(
+        self,
+        to: str,
+        template_id: str,
+        variables: dict,
+    ) -> bool:
+        # Implement SendGrid template support
+        pass
+```
+        </example-implementation>
+      </integration-pattern>
+
+      <integrations-list>
+        <integration name="Email Service">
+          <path>backend/integrations/email/</path>
+          <files>
+            <file>base.py - EmailServiceInterface</file>
+            <file>sendgrid.py - SendGrid implementation</file>
+            <file>ses.py - AWS SES implementation</file>
+          </files>
+          <methods>
+            <method>send_email(to, subject, body, html_body, attachments)</method>
+            <method>send_template_email(to, template_id, variables)</method>
+          </methods>
+        </integration>
+
+        <integration name="SMS Service">
+          <path>backend/integrations/sms/</path>
+          <files>
+            <file>base.py - SMSServiceInterface</file>
+            <file>twilio.py - Twilio implementation</file>
+          </files>
+          <methods>
+            <method>send_sms(to, message)</method>
+            <method>get_delivery_status(message_sid)</method>
+          </methods>
+        </integration>
+
+        <integration name="Storage Service">
+          <path>backend/integrations/storage/</path>
+          <files>
+            <file>base.py - StorageServiceInterface</file>
+            <file>local.py - Local filesystem (development)</file>
+            <file>s3.py - AWS S3 implementation</file>
+          </files>
+          <methods>
+            <method>upload_file(file, key, bucket, metadata)</method>
+            <method>download_file(key, bucket)</method>
+            <method>generate_presigned_url(key, bucket, expiration)</method>
+            <method>delete_file(key, bucket)</method>
+            <method>list_files(prefix, bucket)</method>
+          </methods>
+          <example path="backend/integrations/storage/s3.py">
+```python
+import boto3
+from botocore.exceptions import ClientError
+from integrations.storage.base import StorageServiceInterface
+from core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class S3StorageService(StorageServiceInterface):
+    def __init__(self):
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION,
+        )
+        self.default_bucket = settings.S3_BUCKET_NAME
+
+    async def upload_file(
+        self,
+        file,
+        key: str,
+        bucket: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> str:
+        try:
+            bucket = bucket or self.default_bucket
+            extra_args = {}
+            if metadata:
+                extra_args['Metadata'] = metadata
+
+            self.s3_client.upload_fileobj(file, bucket, key, ExtraArgs=extra_args)
+            return f"s3://{bucket}/{key}"
+        except ClientError as e:
+            logger.error(f"S3 upload failed: {e}")
+            raise
+
+    async def generate_presigned_url(
+        self,
+        key: str,
+        bucket: Optional[str] = None,
+        expiration: int = 3600,
+    ) -> str:
+        bucket = bucket or self.default_bucket
+        try:
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket, 'Key': key},
+                ExpiresIn=expiration
+            )
+            return url
+        except ClientError as e:
+            logger.error(f"Failed to generate presigned URL: {e}")
+            raise
+```
+          </example>
+        </integration>
+
+        <integration name="Payment Service">
+          <path>backend/integrations/payments/</path>
+          <files>
+            <file>base.py - PaymentServiceInterface</file>
+            <file>stripe.py - Stripe implementation</file>
+          </files>
+          <methods>
+            <method>create_payment_intent(amount, currency, customer_id, metadata)</method>
+            <method>capture_payment(payment_intent_id)</method>
+            <method>refund_payment(payment_intent_id, amount)</method>
+            <method>create_customer(email, name, metadata)</method>
+            <method>get_payment_status(payment_intent_id)</method>
+          </methods>
+        </integration>
+      </integrations-list>
+
+      <factory-pattern path="backend/integrations/__init__.py">
+        <description>Factory functions to get appropriate service implementation</description>
+```python
+from core.config import settings
+from integrations.email.base import EmailServiceInterface
+from integrations.email.sendgrid import SendGridEmailService
+from integrations.email.ses import SESEmailService
+from integrations.sms.base import SMSServiceInterface
+from integrations.sms.twilio import TwilioSMSService
+from integrations.storage.base import StorageServiceInterface
+from integrations.storage.s3 import S3StorageService
+from integrations.storage.local import LocalStorageService
+
+def get_email_service() -> EmailServiceInterface:
+    if settings.ENVIRONMENT == "development":
+        return SendGridEmailService()  # or mock
+    return SendGridEmailService()
+
+def get_sms_service() -> SMSServiceInterface:
+    return TwilioSMSService()
+
+def get_storage_service() -> StorageServiceInterface:
+    if settings.ENVIRONMENT == "development":
+        return LocalStorageService()
+    return S3StorageService()
+```
+      </factory-pattern>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 7: MIDDLEWARE & UTILITIES -->
+    <!-- ============================================ -->
+
+    <section name="middleware-utilities">
+
+      <middleware path="backend/middleware/audit.py">
+        <description>Automatic audit logging middleware</description>
+```python
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from services.audit_service import AuditService
+import time
+
+class AuditMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Log request details
+        start_time = time.time()
+
+        response = await call_next(request)
+
+        # Log to audit trail if mutation operation
+        if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+            # Extract user and log action
+            pass
+
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = str(process_time)
+
+        return response
+```
+      </middleware>
+
+      <middleware path="backend/middleware/error_handler.py">
+        <description>Global exception handling</description>
+```python
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError
+import logging
+
+logger = logging.getLogger(__name__)
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error: {exc.errors()}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"success": False, "message": "Validation error", "errors": exc.errors()},
+    )
+
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    logger.error(f"Database integrity error: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"success": False, "message": "Database constraint violation"},
+    )
+
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"success": False, "message": "Internal server error"},
+    )
+```
+      </middleware>
+
+      <dependency path="backend/api/deps.py">
+        <description>Common FastAPI dependencies</description>
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+import uuid
+
+from core.database import get_db
+from core.config import settings
+from core.security import oauth2_scheme
+from models.user import User
+from models.permission import Permission
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    # Get user from database
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+def require_permission(resource: str, action: str):
+    """Dependency to check permissions."""
+    async def permission_checker(
+        current_user: User = Depends(get_current_active_user),
+        db: AsyncSession = Depends(get_db),
+    ):
+        # Check if user has permission
+        has_permission = await check_user_permission(
+            db, current_user.role, resource, action
+        )
+        if not has_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
+        return current_user
+    return permission_checker
+```
+      </dependency>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 8: MAIN APPLICATION -->
+    <!-- ============================================ -->
+
+    <section name="main-application">
+
+      <file path="backend/main.py">
+        <description>FastAPI application setup and configuration</description>
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError
+
+from core.config import settings
+from core.database import engine
+from api.v1.api import api_router
+from middleware.audit import AuditMiddleware
+from middleware.error_handler import (
+    validation_exception_handler,
+    integrity_error_handler,
+    general_exception_handler,
+)
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.VERSION,
+    openapi_url="/api/v1/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Custom middleware
+app.add_middleware(AuditMiddleware)
+
+# Exception handlers
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(IntegrityError, integrity_error_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
+# Include API router
+app.include_router(api_router, prefix="/api/v1")
+
+@app.on_event("startup")
+async def startup():
+    # Initialize database connections, etc.
+    pass
+
+@app.on_event("shutdown")
+async def shutdown():
+    # Close connections
+    await engine.dispose()
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+```
+      </file>
+
+      <file path="backend/api/v1/api.py">
+        <description>Main API router aggregator</description>
+```python
+from fastapi import APIRouter
+
+from api.v1.endpoints import (
+    auth,
+    patients,
+    appointments,
+    providers,
+    staff,
+    claims,
+    referrals,
+    communications,
+    documents,
+    medical_records,
+    insurance,
+    reports,
+    automation,
+    settings,
+    notifications,
+    specialists,
+    websocket,
+)
+
+api_router = APIRouter()
+
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(patients.router, prefix="/patients", tags=["Patients"])
+api_router.include_router(appointments.router, prefix="/appointments", tags=["Appointments"])
+api_router.include_router(providers.router, prefix="/providers", tags=["Providers"])
+api_router.include_router(staff.router, prefix="/staff", tags=["Staff"])
+api_router.include_router(claims.router, prefix="/claims", tags=["Claims"])
+api_router.include_router(referrals.router, prefix="/referrals", tags=["Referrals"])
+api_router.include_router(communications.router, prefix="/communications", tags=["Communications"])
+api_router.include_router(documents.router, prefix="/documents", tags=["Documents"])
+api_router.include_router(medical_records.router, prefix="/medical-records", tags=["Medical Records"])
+api_router.include_router(insurance.router, prefix="/insurance", tags=["Insurance"])
+api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
+api_router.include_router(automation.router, prefix="/automation", tags=["Automation"])
+api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+api_router.include_router(specialists.router, prefix="/specialists", tags=["Specialists"])
+api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
+```
+      </file>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 9: DATABASE MIGRATIONS -->
+    <!-- ============================================ -->
+
+    <section name="database-migrations">
+
+      <file path="backend/alembic.ini">
+        <description>Alembic configuration</description>
+```ini
+[alembic]
+script_location = migrations
+prepend_sys_path = .
+sqlalchemy.url = driver://user:pass@localhost/dbname
+
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+```
+      </file>
+
+      <file path="backend/migrations/env.py">
+        <description>Alembic environment configuration</description>
+```python
+from logging.config import fileConfig
+from sqlalchemy import engine_from_config, pool
+from alembic import context
+import asyncio
+
+from core.config import settings
+from core.database import Base
+from models import *  # Import all models
+
+config = context.config
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+async def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+def do_run_migrations(connection):
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    asyncio.run(run_migrations_online())
+```
+      </file>
+
+      <commands>
+        <command>alembic init migrations</command>
+        <command>alembic revision --autogenerate -m "Initial migration"</command>
+        <command>alembic upgrade head</command>
+        <command>alembic downgrade -1</command>
+      </commands>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 10: DATABASE SEEDING -->
+    <!-- ============================================ -->
+
+    <section name="database-seeding">
+
+      <file path="backend/scripts/seed.py">
+        <description>Comprehensive database seeding with realistic data</description>
+```python
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date, datetime, timedelta
+import random
+
+from core.database import AsyncSessionLocal
+from models.practice import Practice
+from models.user import User
+from models.patient import Patient
+from models.provider import Provider
+from models.appointment import Appointment
+from models.claim import Claim
+from core.security import get_password_hash
+
+async def seed_database():
+    async with AsyncSessionLocal() as db:
+        # Create practice
+        practice = Practice(
+            name="Main Street Medical Center",
+            npi="1234567890",
+            tax_id="12-3456789",
+            email="contact@mainstreetmedical.com",
+            phone="(555) 123-4567",
+            address_line1="123 Main Street",
+            city="Springfield",
+            state="IL",
+            zip_code="62701",
+            timezone="America/Chicago",
+        )
+        db.add(practice)
+        await db.flush()
+
+        # Create admin user
+        admin = User(
+            practice_id=practice.id,
+            email="admin@mainstreetmedical.com",
+            hashed_password=get_password_hash("admin123"),
+            full_name="Admin User",
+            role="admin",
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(admin)
+
+        # Create providers
+        providers = []
+        for i in range(5):
+            provider = Provider(
+                practice_id=practice.id,
+                npi=f"123456{i:04d}",
+                title="MD",
+                specialty=random.choice(["Family Medicine", "Internal Medicine", "Pediatrics"]),
+                accepting_new_patients=True,
+                status="active",
+            )
+            db.add(provider)
+            providers.append(provider)
+
+        await db.flush()
+
+        # Create 50 patients
+        for i in range(50):
+            patient = Patient(
+                practice_id=practice.id,
+                mrn=f"MRN-{i+1:08d}",
+                first_name=f"Patient{i+1}",
+                last_name=f"Test{i+1}",
+                date_of_birth=date(1950, 1, 1) + timedelta(days=random.randint(0, 20000)),
+                gender=random.choice(["Male", "Female", "Other"]),
+                email=f"patient{i+1}@example.com",
+                phone=f"(555) {random.randint(100, 999)}-{random.randint(1000, 9999)}",
+                address_line1=f"{random.randint(100, 9999)} Main St",
+                city="Springfield",
+                state="IL",
+                zip_code="62701",
+                primary_provider_id=random.choice(providers).id,
+                status="active",
+                created_by=admin.id,
+            )
+            db.add(patient)
+
+        await db.flush()
+
+        # Create appointments, claims, etc.
+        # ... (similar pattern for other entities)
+
+        await db.commit()
+        print("Database seeded successfully!")
+
+if __name__ == "__main__":
+    asyncio.run(seed_database())
+```
+      </file>
+
+      <command>python -m scripts.seed</command>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 11: DOCKER & DEPLOYMENT -->
+    <!-- ============================================ -->
+
+    <section name="docker-deployment">
+
+      <file path="backend/docker-compose.yml">
+        <description>Local development environment</description>
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: healthcare
+      POSTGRES_PASSWORD: healthcare_dev
+      POSTGRES_DB: healthcare_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthcare"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+      </file>
+
+      <file path="backend/Dockerfile">
+        <description>Production Docker image</description>
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run with uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+```
+      </file>
+
+      <file path="backend/.env.example">
+        <description>Environment variables template</description>
+```env
+# Application
+APP_NAME="Healthcare Practice Management API"
+VERSION="1.0.0"
+DEBUG=False
+ENVIRONMENT=development
+
+# Database
+DATABASE_URL=postgresql+asyncpg://healthcare:healthcare_dev@localhost:5432/healthcare_db
+
+# Security
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+ENCRYPTION_KEY=your-encryption-key-32-chars
+
+# CORS
+BACKEND_CORS_ORIGINS=["http://localhost:3000"]
+
+# AWS
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=healthcare-documents
+
+# Email
+SENDGRID_API_KEY=
+DEFAULT_FROM_EMAIL=noreply@example.com
+
+# SMS
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+
+# Payments
+STRIPE_SECRET_KEY=
+
+# File Upload
+MAX_UPLOAD_SIZE=10485760
+ALLOWED_EXTENSIONS=[".pdf",".jpg",".png",".docx"]
+```
+      </file>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 12: TESTING -->
+    <!-- ============================================ -->
+
+    <section name="testing">
+
+      <file path="backend/tests/conftest.py">
+        <description>Pytest fixtures and test configuration</description>
+```python
+import pytest
+import asyncio
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from httpx import AsyncClient
+
+from main import app
+from core.database import Base, get_db
+from core.config import settings
+
+# Test database URL
+TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test_db"
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+@pytest.fixture(scope="session")
+async def test_engine():
+    engine = create_async_engine(TEST_DATABASE_URL, echo=True)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield engine
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    await engine.dispose()
+
+@pytest.fixture
+async def test_db(test_engine) -> AsyncGenerator[AsyncSession, None]:
+    async_session = async_sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    async with async_session() as session:
+        yield session
+        await session.rollback()
+
+@pytest.fixture
+async def client(test_db) -> AsyncGenerator[AsyncClient, None]:
+    async def override_get_db():
+        yield test_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+@pytest.fixture
+async def test_user(test_db):
+    # Create test user
+    pass
+
+@pytest.fixture
+async def auth_headers(test_user):
+    # Generate auth token
+    pass
+```
+      </file>
+
+      <example-test path="backend/tests/test_api/test_patients.py">
+```python
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_create_patient(client: AsyncClient, auth_headers):
+    patient_data = {
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1990-01-01",
+        "gender": "Male",
+        "email": "john.doe@example.com",
+        "phone": "(555) 123-4567",
+    }
+
+    response = await client.post(
+        "/api/v1/patients/",
+        json=patient_data,
+        headers=auth_headers
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["first_name"] == "John"
+    assert data["last_name"] == "Doe"
+    assert "id" in data
+    assert "mrn" in data
+
+@pytest.mark.asyncio
+async def test_list_patients(client: AsyncClient, auth_headers):
+    response = await client.get(
+        "/api/v1/patients/",
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    assert "total" in data
+    assert isinstance(data["items"], list)
+```
+      </example-test>
+
+      <requirements>
+        <requirement>Create test files for all API endpoints</requirement>
+        <requirement>Test authentication and authorization</requirement>
+        <requirement>Test multi-tenancy isolation</requirement>
+        <requirement>Test validation and error handling</requirement>
+        <requirement>Mock external integrations</requirement>
+        <requirement>Achieve 80%+ test coverage</requirement>
+      </requirements>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 13: DOCUMENTATION -->
+    <!-- ============================================ -->
+
+    <section name="documentation">
+
+      <file path="backend/README.md">
+        <description>Comprehensive backend documentation</description>
+```markdown
+# Healthcare Practice Management - Backend API
+
+FastAPI backend for healthcare practice management platform with multi-tenancy, HIPAA compliance, and comprehensive feature set.
+
+## Features
+
+- **Multi-tenant architecture** - Practice-level data isolation
+- **HIPAA compliant** - Audit logging, encryption, access controls
+- **RESTful API** - Comprehensive endpoints for all features
+- **OAuth2 + JWT** - Secure authentication and authorization
+- **WebSocket support** - Real-time notifications
+- **External integrations** - Email (SendGrid), SMS (Twilio), Storage (S3), Payments (Stripe)
+- **Database migrations** - Alembic for schema management
+- **Comprehensive testing** - Pytest with 80%+ coverage
+- **OpenAPI documentation** - Auto-generated API docs
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- PostgreSQL 15+
+- Docker & Docker Compose (optional)
+
+### Local Development
+
+1. **Start PostgreSQL**
+   ```bash
+   docker-compose up -d postgres
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Set up environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Run migrations**
+   ```bash
+   alembic upgrade head
+   ```
+
+5. **Seed database**
+   ```bash
+   python -m scripts.seed
+   ```
+
+6. **Start server**
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+7. **Access API docs**
+   - Swagger UI: http://localhost:8000/api/docs
+   - ReDoc: http://localhost:8000/api/redoc
+
+## Architecture
+
+### Directory Structure
+- `api/` - API routes and schemas
+- `core/` - Core configuration and utilities
+- `models/` - SQLAlchemy database models
+- `services/` - Business logic layer
+- `integrations/` - External service integrations
+- `middleware/` - Custom middleware
+- `migrations/` - Database migrations
+- `tests/` - Test suite
+
+### Database Schema
+
+35+ tables covering:
+- Patient management
+- Appointment scheduling
+- Provider and staff management
+- Billing and claims
+- Referral management
+- Communications
+- Medical records (EHR)
+- Insurance management
+- Document storage
+- Automation rules
+- Audit logging
+
+## API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/register` - User registration
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh token
+- `GET /api/v1/auth/me` - Get current user
+
+### Patients
+- `GET /api/v1/patients` - List patients
+- `POST /api/v1/patients` - Create patient
+- `GET /api/v1/patients/{id}` - Get patient
+- `PATCH /api/v1/patients/{id}` - Update patient
+- `DELETE /api/v1/patients/{id}` - Delete patient
+
+[... similar for all 15+ resource types]
+
+## Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=. --cov-report=html
+
+# Run specific test file
+pytest tests/test_api/test_patients.py
+```
+
+## Deployment
+
+### Docker
+
+```bash
+docker build -t healthcare-api .
+docker run -p 8000:8000 healthcare-api
+```
+
+### Production Checklist
+
+- [ ] Set strong SECRET_KEY and ENCRYPTION_KEY
+- [ ] Configure production database (AWS RDS)
+- [ ] Set up S3 bucket for file storage
+- [ ] Configure email service (SendGrid/SES)
+- [ ] Configure SMS service (Twilio)
+- [ ] Set up monitoring and logging
+- [ ] Enable HTTPS
+- [ ] Configure backup strategy
+- [ ] Review security settings
+- [ ] Load test the application
+
+## Security
+
+- Password hashing with bcrypt
+- JWT token authentication
+- Role-based access control (RBAC)
+- Multi-tenancy data isolation
+- Field-level encryption for sensitive data
+- Comprehensive audit logging
+- HTTPS enforcement
+- CORS configuration
+- Rate limiting
+
+## Contributing
+
+1. Create feature branch
+2. Write tests
+3. Implement feature
+4. Ensure tests pass
+5. Submit pull request
+
+## License
+
+[Your License]
+```
+      </file>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SECTION 14: REQUIREMENTS FILES -->
+    <!-- ============================================ -->
+
+    <section name="requirements">
+
+      <file path="backend/requirements.txt">
+        <description>Production Python dependencies</description>
+```txt
+# FastAPI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+cryptography==41.0.7
+
+# AWS
+boto3==1.34.0
+
+# Email
+sendgrid==6.11.0
+
+# SMS
+twilio==8.10.0
+
+# Payments
+stripe==7.7.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Monitoring
+python-json-logger==2.0.7
+```
+      </file>
+
+      <file path="backend/requirements-dev.txt">
+        <description>Development dependencies</description>
+```txt
+-r requirements.txt
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# Code quality
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+isort==5.13.0
+
+# Development
+ipython==8.18.1
+```
+      </file>
+    </section>
+
+  </implementation-requirements>
+
+  <execution-instructions>
+    <instruction-set>
+      <phase number="1" name="Setup and Configuration">
+        <step>Create backend/ directory structure as specified</step>
+        <step>Create requirements.txt and requirements-dev.txt</step>
+        <step>Create .env.example with all configuration variables</step>
+        <step>Set up docker-compose.yml for local PostgreSQL</step>
+        <step>Create core configuration files (config.py, security.py, database.py, encryption.py)</step>
+      </phase>
+
+      <phase number="2" name="Database Models">
+        <step>Create base.py with BaseModel and mixins.py</step>
+        <step>Implement all 35+ database models in models/ directory</step>
+        <step>Add proper relationships, indexes, and constraints</step>
+        <step>Use EncryptedString type for sensitive fields</step>
+        <step>Ensure all models include multi-tenancy and soft delete mixins where appropriate</step>
+      </phase>
+
+      <phase number="3" name="Database Migrations">
+        <step>Initialize Alembic with alembic init migrations</step>
+        <step>Configure alembic.ini and migrations/env.py</step>
+        <step>Generate initial migration with alembic revision --autogenerate</step>
+        <step>Review and adjust migration file</step>
+        <step>Test migration with alembic upgrade head</step>
+      </phase>
+
+      <phase number="4" name="Pydantic Schemas">
+        <step>Create common.py with PaginatedResponse, SuccessResponse, ErrorResponse</step>
+        <step>Implement schemas for ALL 35+ models following the pattern (Base, Create, Update, InDBBase, Response)</step>
+        <step>Add validation for special fields (email, phone, NPI, MRN)</step>
+        <step>Create filter schemas for list endpoints</step>
+      </phase>
+
+      <phase number="5" name="Service Layer">
+        <step>Create audit_service.py for centralized audit logging</step>
+        <step>Implement service classes for all major entities (15+ services)</step>
+        <step>Add business logic: MRN generation, status workflows, validations</step>
+        <step>Include audit logging in all mutation operations</step>
+        <step>Implement multi-tenancy filtering in all queries</step>
+      </phase>
+
+      <phase number="6" name="Integration Layer">
+        <step>Create base interfaces for email, SMS, storage, payments</step>
+        <step>Implement SendGrid email service</step>
+        <step>Implement Twilio SMS service</step>
+        <step>Implement S3 storage service (and local for development)</step>
+        <step>Implement Stripe payment service</step>
+        <step>Create factory functions in integrations/__init__.py</step>
+      </phase>
+
+      <phase number="7" name="API Endpoints">
+        <step>Create deps.py with authentication dependencies</step>
+        <step>Implement auth.py endpoints (login, register, refresh, logout)</step>
+        <step>Create CRUD endpoints for ALL major entities (15+ endpoint files)</step>
+        <step>Add search, filtering, and pagination to list endpoints</step>
+        <step>Implement special endpoints (documents, reports, websocket)</step>
+        <step>Create api.py router aggregator</step>
+      </phase>
+
+      <phase number="8" name="Middleware and Error Handling">
+        <step>Create audit middleware for automatic logging</step>
+        <step>Implement error handlers (validation, integrity, general)</step>
+        <step>Set up CORS middleware</step>
+        <step>Add rate limiting middleware</step>
+      </phase>
+
+      <phase number="9" name="Main Application">
+        <step>Create main.py with FastAPI app setup</step>
+        <step>Register all middleware</step>
+        <step>Register exception handlers</step>
+        <step>Include API router</step>
+        <step>Add startup/shutdown events</step>
+        <step>Add health check endpoint</step>
+      </phase>
+
+      <phase number="10" name="Database Seeding">
+        <step>Create seed.py script with comprehensive test data</step>
+        <step>Seed 1 practice, admin user, 5 providers, 50 patients</step>
+        <step>Generate appointments, claims, referrals, messages</step>
+        <step>Create realistic data relationships</step>
+        <step>Add create_superuser.py script</step>
+      </phase>
+
+      <phase number="11" name="Testing">
+        <step>Set up conftest.py with fixtures</step>
+        <step>Create test files for all API endpoints</step>
+        <step>Test authentication and authorization</step>
+        <step>Test multi-tenancy isolation</step>
+        <step>Test validation and error cases</step>
+        <step>Mock external integrations</step>
+        <step>Run tests and achieve 80%+ coverage</step>
+      </phase>
+
+      <phase number="12" name="Docker and Deployment">
+        <step>Finalize docker-compose.yml</step>
+        <step>Create production Dockerfile</step>
+        <step>Test local Docker setup</step>
+        <step>Document deployment process</step>
+      </phase>
+
+      <phase number="13" name="Documentation">
+        <step>Create comprehensive README.md</step>
+        <step>Document all API endpoints</step>
+        <step>Add architecture documentation</step>
+        <step>Create setup and deployment guides</step>
+        <step>Document environment variables</step>
+      </phase>
+    </instruction-set>
+
+    <critical-requirements>
+      <requirement priority="critical">All models MUST include practice_id for multi-tenancy</requirement>
+      <requirement priority="critical">All mutations MUST be logged to audit_logs table</requirement>
+      <requirement priority="critical">Sensitive fields (SSN, DOB) MUST use EncryptedString type</requirement>
+      <requirement priority="critical">All endpoints MUST enforce authentication</requirement>
+      <requirement priority="critical">All database queries MUST filter by practice_id</requirement>
+      <requirement priority="critical">Implement soft delete for all major entities</requirement>
+      <requirement priority="critical">Use async/await throughout the application</requirement>
+      <requirement priority="high">Implement comprehensive error handling</requirement>
+      <requirement priority="high">Add proper indexes to database tables</requirement>
+      <requirement priority="high">Create test coverage for all endpoints</requirement>
+    </critical-requirements>
+
+    <quality-standards>
+      <standard>Follow PEP 8 style guidelines</standard>
+      <standard>Add docstrings to all public functions and classes</standard>
+      <standard>Use type hints throughout the codebase</standard>
+      <standard>Implement proper error messages for user-facing errors</standard>
+      <standard>Use meaningful variable and function names</standard>
+      <standard>Keep functions focused and under 50 lines when possible</standard>
+      <standard>Add comments for complex business logic</standard>
+    </quality-standards>
+  </execution-instructions>
+
+  <success-criteria>
+    <criterion>All 35+ database tables created with proper relationships</criterion>
+    <criterion>Complete CRUD API endpoints for all major entities</criterion>
+    <criterion>Authentication and authorization working with JWT</criterion>
+    <criterion>Multi-tenancy properly enforced throughout</criterion>
+    <criterion>Audit logging capturing all mutations</criterion>
+    <criterion>Sensitive data encrypted at rest</criterion>
+    <criterion>All external integrations implemented with interface pattern</criterion>
+    <criterion>WebSocket support for real-time notifications</criterion>
+    <criterion>Database migrations working correctly</criterion>
+    <criterion>Seeding script populating realistic test data</criterion>
+    <criterion>Docker Compose setup working for local development</criterion>
+    <criterion>Test suite with 80%+ coverage passing</criterion>
+    <criterion>OpenAPI documentation auto-generated and accurate</criterion>
+    <criterion>README with comprehensive setup and usage instructions</criterion>
+  </success-criteria>
+
+</codex-prompt>
