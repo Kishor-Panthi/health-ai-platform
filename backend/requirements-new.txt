@@ -1,0 +1,24 @@
+# Add to existing requirements.txt
+
+# E-Prescribing
+surescripts-python==0.1.0  # Hypothetical - will need actual SDK or build custom
+xmltodict==0.13.0  # For parsing NCPDP SCRIPT XML
+
+# Email & SMS
+sendgrid==6.11.0
+twilio==8.10.0
+
+# File Storage
+boto3==1.34.14  # AWS S3
+botocore==1.34.14
+
+# Monitoring
+ddtrace==2.5.0  # Datadog APM
+sentry-sdk[fastapi]==1.40.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.26.0  # For testing API calls
+faker==22.0.0  # Generate test data
